@@ -1,0 +1,32 @@
+data: [
+          ['R150', 'R160'],
+          ['R160', 'R170'],
+          ['R150', 'HPi'],
+          ['R150', 'TCU'],
+          ['R150', 'SHU'],
+          ['R150', 'IU1'],
+          ['R150', 'TC4'],   // New edge to TC4
+          ['R160', 'SHU4'],  // New edge to SHU4
+          ['R160', 'IU4'],   // New edge to IU4
+          ['R170', 'HF2'],   // New edge to HF2
+          ['R170', 'TCU7'],  // New edge to TCU7
+          ['R170', 'HUB'],    // New edge to HUB
+          ['R170', 'IU9'],    // New edge to IU9
+        ],
+        nodes: [
+          { id: 'R150', title: 'R150', color: '#706e75',  marker: { radius: 40, lineWidth: 2, lineColor: 'red' } },
+          { id: 'R160', title: 'R160', color: '#706e75', marker: { radius: 40 , lineWidth: 2, lineColor: 'red'} },
+          { id: 'R170', title: 'R170', color: '#706e75', marker: { radius: 40 , lineWidth: 2, lineColor: 'green' } },
+          { id: 'HPi', title: 'HPi', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } },
+          { id: 'TCU', title: 'TCU', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'red' } },
+          { id: 'SHU', title: 'SHU', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'red' } },
+          { id: 'IU1', title: 'IU1', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } },
+          { id: 'TC4', title: 'TC4', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } },   // New node TC4
+          { id: 'SHU4', title: 'SHU4', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } }, // New node SHU4
+          { id: 'IU4', title: 'IU4', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } },   // New node IU4
+          { id: 'HF2', title: 'HF2', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } },   // New node HF2
+          { id: 'TCU7', title: 'TCU7', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } }, // New node TCU7
+          { id: 'HUB', title: 'HUB', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } },   // New node HUB
+          { id: 'IU9', title: 'IU9', color: '#706e75', marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } },   // New node IU9
+        ],
+      },
