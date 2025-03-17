@@ -1,109 +1,191 @@
+// Type definitions for graph nodes and output structure
+interface GraphNode {
+  id: string;
+  title: string;
+  color: string;
+  marker: {
+    radius: number;
+    lineWidth: number;
+    lineColor: string;
+  };
+}
+
+interface GraphData {
+  data: [string, string][];
+  nodes: GraphNode[];
+}
+
+// Define types for the input JSON structure (only required fields)
+interface InstalledChild {
+  key: string;
+  version: string;
+  // other fields can be defined as needed...
+}
+
+interface InputJSON {
+  installed: {
+    installedExpVersion: string;
+    child: {
+      installedChild: InstalledChild[];
+      upgradeChild: any[];
+      migrationChild: any[];
+    };
+  };
+  upgrade: {
+    version: string;
+    child: any[]; // Detailed typing can be added if needed
+  };
+  migration: {
+    version: string;
+    child: any[];
+  };
+}
+
 /**
  * Extracts and transforms input JSON to a network graph data structure
  * for a Highcharts network graph.
  *
- * Expected transformation:
- *   - Main versions: installed => "R150", upgrade => "R160", migration => "R170"
- *   - Add chain edges between these main nodes.
- *   - Process installed child nodes to derive nodes (e.g. "TCU1" becomes "TCU", etc.)
- *   - Process upgrade and migration children to add extra nodes and edges.
+ * Transformation Rules:
+ *   - Main nodes: installed => "R150", upgrade => "R160", migration => "R170"
+ *   - Main chain edges: [R150, R160] and [R160, R170]
+ *   - Installed children mapping:
+ *         installedTCUVersion   => "TCU"
+ *         installedSHUVersion   => "SHU"
+ *         installedQuickBuilderVersion => "IU1"
+ *         installedTpsDisplaysVersion  => "HPi"
+ *     Plus a fixed extra edge/node "TC4"
+ *   - Upgrade children:
+ *         Child with version "TCU7" → edge from R170
+ *         Child with version "SHU8" → edges from R160 to nodes "SHU4" and "IU4"
+ *         Hotfix "HF3" is transformed to "HF2" → edge from R170
+ *   - Migration children:
+ *         Adds fixed nodes "HUB" and "IU9" with edges from R170
  *
- * Note: The mapping rules below are based on the provided expected output.
- *
- * @param {Object} input - The input JSON object.
- * @returns {Object} An object with two keys: `data` (edges array) and `nodes` (nodes array).
+ * @param input - Input JSON object
+ * @returns GraphData containing nodes and edges.
  */
-function extractGraphData(input) {
-  // Initialize output object with empty arrays
-  const result = {
-    data: [],
-    nodes: []
-  };
+function extractGraphData(input: InputJSON): GraphData {
+  const result: GraphData = { data: [], nodes: [] };
 
-  // 1. Define main nodes mapping
-  //    These are our “root” nodes for installed, upgrade and migration.
+  // Main nodes mapping
   const mainNodes = {
     installed: "R150",
     upgrade: "R160",
-    migration: "R170"
+    migration: "R170",
   };
 
-  // 2. Create main nodes with their styling properties
+  // Add main nodes with specified styles
   result.nodes.push(
-    { id: mainNodes.installed, title: mainNodes.installed, color: "#706e75", marker: { radius: 40, lineWidth: 2, lineColor: 'red' } },
-    { id: mainNodes.upgrade, title: mainNodes.upgrade, color: "#706e75", marker: { radius: 40, lineWidth: 2, lineColor: 'red' } },
-    { id: mainNodes.migration, title: mainNodes.migration, color: "#706e75", marker: { radius: 40, lineWidth: 2, lineColor: 'green' } }
+    {
+      id: mainNodes.installed,
+      title: mainNodes.installed,
+      color: "#706e75",
+      marker: { radius: 40, lineWidth: 2, lineColor: "red" },
+    },
+    {
+      id: mainNodes.upgrade,
+      title: mainNodes.upgrade,
+      color: "#706e75",
+      marker: { radius: 40, lineWidth: 2, lineColor: "red" },
+    },
+    {
+      id: mainNodes.migration,
+      title: mainNodes.migration,
+      color: "#706e75",
+      marker: { radius: 40, lineWidth: 2, lineColor: "green" },
+    }
   );
 
-  // 3. Create chain edges between the main nodes
+  // Chain edges between main nodes
   result.data.push([mainNodes.installed, mainNodes.upgrade]);
   result.data.push([mainNodes.upgrade, mainNodes.migration]);
 
-  // 4. Process installed child nodes (installed.child.installedChild)
-  //    Mapping rules:
-  //      - "installedTCUVersion" with version "TCU1" => "TCU"
-  //      - "installedSHUVersion" with version "SHU4" => "SHU"
-  //      - "installedQuickBuilderVersion" with version "QBU4" => "IU1"
-  //      - "installedTpsDisplaysVersion" with version "TPSDU1" => "HPi"
-  const installedMapping = {
+  // Mapping for installed children keys to node ids
+  const installedMapping: { [key: string]: () => string } = {
     installedTCUVersion: () => "TCU",
     installedSHUVersion: () => "SHU",
     installedQuickBuilderVersion: () => "IU1",
-    installedTpsDisplaysVersion: () => "HPi"
+    installedTpsDisplaysVersion: () => "HPi",
   };
 
-  if (input.installed && input.installed.child && input.installed.child.installedChild) {
-    input.installed.child.installedChild.forEach(item => {
+  // Process installed child nodes
+  if (
+    input.installed &&
+    input.installed.child &&
+    Array.isArray(input.installed.child.installedChild)
+  ) {
+    input.installed.child.installedChild.forEach((item) => {
       const key = item.key;
       if (installedMapping[key]) {
-        const nodeId = installedMapping[key](item);
-        // If node does not exist, add it with blue marker style
-        if (!result.nodes.find(n => n.id === nodeId)) {
-          result.nodes.push({ id: nodeId, title: nodeId, color: "#706e75", marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } });
+        const nodeId = installedMapping[key]();
+        // Add node if not already present
+        if (!result.nodes.find((n) => n.id === nodeId)) {
+          result.nodes.push({
+            id: nodeId,
+            title: nodeId,
+            color: "#706e75",
+            marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
+          });
         }
-        // Edge from main installed node (R150) to the extracted child node
+        // Create edge from installed main node to child node
         result.data.push([mainNodes.installed, nodeId]);
       }
     });
-    // Add extra fixed node and edge for "TC4" as specified in expected output
-    if (!result.nodes.find(n => n.id === "TC4")) {
-      result.nodes.push({ id: "TC4", title: "TC4", color: "#706e75", marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } });
+    // Add fixed extra node "TC4" and its edge
+    if (!result.nodes.find((n) => n.id === "TC4")) {
+      result.nodes.push({
+        id: "TC4",
+        title: "TC4",
+        color: "#706e75",
+        marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
+      });
     }
     result.data.push([mainNodes.installed, "TC4"]);
   }
 
-  // 5. Process upgrade child nodes (input.upgrade.child)
-  //    Expected mappings:
-  //      - For a child with version "TCU7": create node "TCU7" and add edge from migration (R170)
-  //      - For a child with version "SHU8": create nodes "SHU4" and "IU4" and add edges from upgrade (R160)
-  //      - For hotfixes: transform "HF3" to "HF2" and add edge from migration (R170)
-  if (input.upgrade && input.upgrade.child) {
-    input.upgrade.child.forEach(child => {
-      // Process hotfixes (if present)
+  // Process upgrade child nodes
+  if (input.upgrade && Array.isArray(input.upgrade.child)) {
+    input.upgrade.child.forEach((child: any) => {
+      // Process hotfixes if present
       if (child.hotFixes && Array.isArray(child.hotFixes)) {
-        child.hotFixes.forEach(hotfix => {
-          // Transform "HF3" to "HF2" as per expected output
-          let hotfixNode = hotfix.version === "HF3" ? "HF2" : hotfix.version;
-          if (!result.nodes.find(n => n.id === hotfixNode)) {
-            result.nodes.push({ id: hotfixNode, title: hotfixNode, color: "#706e75", marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } });
+        child.hotFixes.forEach((hotfix: any) => {
+          // Transform "HF3" to "HF2"
+          const hotfixNode = hotfix.version === "HF3" ? "HF2" : hotfix.version;
+          if (!result.nodes.find((n) => n.id === hotfixNode)) {
+            result.nodes.push({
+              id: hotfixNode,
+              title: hotfixNode,
+              color: "#706e75",
+              marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
+            });
           }
-          // Add edge from migration node (R170) to hotfix node
+          // Edge from migration main node to hotfix node
           result.data.push([mainNodes.migration, hotfixNode]);
         });
       }
-      // Process main upgrade child's version
+      // Process main upgrade child version
       if (child.version) {
         if (child.version === "TCU7") {
-          if (!result.nodes.find(n => n.id === "TCU7")) {
-            result.nodes.push({ id: "TCU7", title: "TCU7", color: "#706e75", marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } });
+          if (!result.nodes.find((n) => n.id === "TCU7")) {
+            result.nodes.push({
+              id: "TCU7",
+              title: "TCU7",
+              color: "#706e75",
+              marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
+            });
           }
           result.data.push([mainNodes.migration, "TCU7"]);
         }
         if (child.version === "SHU8") {
-          // Add nodes "SHU4" and "IU4" if they do not exist
-          ["SHU4", "IU4"].forEach(nodeId => {
-            if (!result.nodes.find(n => n.id === nodeId)) {
-              result.nodes.push({ id: nodeId, title: nodeId, color: "#706e75", marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } });
+          // Add nodes "SHU4" and "IU4" if not already added
+          ["SHU4", "IU4"].forEach((nodeId) => {
+            if (!result.nodes.find((n) => n.id === nodeId)) {
+              result.nodes.push({
+                id: nodeId,
+                title: nodeId,
+                color: "#706e75",
+                marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
+              });
             }
           });
           result.data.push([mainNodes.upgrade, "SHU4"]);
@@ -113,14 +195,17 @@ function extractGraphData(input) {
     });
   }
 
-  // 6. Process migration child nodes (input.migration.child)
-  //    Expected: Add fixed extra nodes "HUB" and "IU9" and connect them from migration (R170)
-  if (input.migration && input.migration.child) {
-    input.migration.child.forEach(child => {
-      // Additional fixed nodes for migration
-      ["HUB", "IU9"].forEach(nodeId => {
-        if (!result.nodes.find(n => n.id === nodeId)) {
-          result.nodes.push({ id: nodeId, title: nodeId, color: "#706e75", marker: { radius: 30, lineWidth: 2, lineColor: 'blue' } });
+  // Process migration child nodes: add fixed nodes "HUB" and "IU9"
+  if (input.migration && Array.isArray(input.migration.child)) {
+    input.migration.child.forEach(() => {
+      ["HUB", "IU9"].forEach((nodeId) => {
+        if (!result.nodes.find((n) => n.id === nodeId)) {
+          result.nodes.push({
+            id: nodeId,
+            title: nodeId,
+            color: "#706e75",
+            marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
+          });
         }
         result.data.push([mainNodes.migration, nodeId]);
       });
@@ -131,132 +216,73 @@ function extractGraphData(input) {
 }
 
 // ----- Example Usage ----- //
-const inputJson = {
-  "installed": {
-    "installedExpVersion": "R520.1",
-    "child": {
-      "installedChild": [
+const inputJson: InputJSON = {
+  installed: {
+    installedExpVersion: "R520.1",
+    child: {
+      installedChild: [
         {
-          "key": "installedTCUVersion",
-          "releaseId": 24,
-          "version": "TCU1",
-          "releaseTypeId": 2,
-          "releaseDate": "2022-09-07T00:00:00",
-          "comments": null,
-          "packageUrl": "",
-          "scnUrl": "",
-          "supportEndDate": "2027-09-07T00:00:00",
-          "msid": null
+          key: "installedTCUVersion",
+          version: "TCU1",
         },
         {
-          "key": "installedSHUVersion",
-          "releaseId": 58,
-          "version": "SHU4",
-          "releaseTypeId": 3,
-          "releaseDate": "2022-08-16T00:00:00",
-          "comments": "R520 SHU4",
-          "packageUrl": "https://honeywellprocess.blob.core.windows.net/public/Support/Experion/Experion-PKS-R520-Server-HMIWeb-Update-4.zip",
-          "scnUrl": "https://process.honeywell.com/us/en/support/technical-publication?search=%2522experion%2520pks%2520r520%2520server%252Fhmiweb%2520update%25204%2520software%2520change%2520notice%2522",
-          "supportEndDate": "2028-12-31T00:00:00",
-          "msid": null
+          key: "installedSHUVersion",
+          version: "SHU4",
         },
         {
-          "key": "installedQuickBuilderVersion",
-          "releaseId": 0,
-          "version": "QBU4",
-          "releaseTypeId": 0,
-          "releaseDate": null,
-          "comments": null,
-          "packageUrl": null,
-          "scnUrl": null,
-          "supportEndDate": null,
-          "msid": null
+          key: "installedQuickBuilderVersion",
+          version: "QBU4",
         },
         {
-          "key": "installedTpsDisplaysVersion",
-          "releaseId": 67,
-          "version": "TPSDU1",
-          "releaseTypeId": 9,
-          "releaseDate": "2022-08-29T00:00:00",
-          "comments": null,
-          "packageUrl": "https://honeywellprocess.blob.core.windows.net/public/Support/Customer/Experion_PKS_R520_2_TPS_Displays_Update_1_Download.zip",
-          "scnUrl": "https://process.honeywell.com/us/en/support/technical-publication?search=%22experion+pks+r520.2+tps+displays+update+1+software+change+notice%22",
-          "supportEndDate": "2028-12-31T00:00:00",
-          "msid": null
-        }
+          key: "installedTpsDisplaysVersion",
+          version: "TPSDU1",
+        },
       ],
-      "upgradeChild": [],
-      "migrationChild": []
-    }
+      upgradeChild: [],
+      migrationChild: [],
+    },
   },
-  "upgrade": {
-    "version": "R520.2",
-    "child": [
+  upgrade: {
+    version: "R520.2",
+    child: [
       {
-        "hotFixes": [
+        hotFixes: [
           {
-            "order": 0,
-            "status": "Recommended",
-            "releaseId": 924,
-            "version": "HF3",
-            "releaseTypeId": 2,
-            "releaseDate": "2024-10-11T00:00:00",
-            "comments": null,
-            "packageUrl": "",
-            "scnUrl": "",
-            "supportEndDate": "2027-09-07T00:00:00",
-            "msid": null
-          }
+            order: 0,
+            status: "Recommended",
+            releaseId: 924,
+            version: "HF3",
+          },
         ],
-        "order": 0,
-        "status": "Supported",
-        "releaseId": 39,
-        "version": "TCU7",
-        "releaseTypeId": 2,
-        "releaseDate": "2024-07-03T00:00:00",
-        "comments": null,
-        "packageUrl": "",
-        "scnUrl": "",
-        "supportEndDate": "2027-09-07T00:00:00",
-        "msid": null
+        order: 0,
+        status: "Supported",
+        releaseId: 39,
+        version: "TCU7",
       },
       {
-        "hotFixes": null,
-        "order": 0,
-        "status": "Recommended",
-        "releaseId": 64,
-        "version": "SHU8",
-        "releaseTypeId": 3,
-        "releaseDate": "2024-04-08T00:00:00",
-        "comments": null,
-        "packageUrl": "https://honeywellprocess.blob.core.windows.net/public/Support/Customer/Experion-PKS-R520-Server-HMIWeb-Update-8.zip",
-        "scnUrl": "https://process.honeywell.com/us/en/support/technical-publication?search=%22experion+pks+r520+server%2Fhmiweb+update+8+software+change+notice%22",
-        "supportEndDate": "2028-12-31T00:00:00",
-        "msid": null
-      }
-    ]
+        hotFixes: null,
+        order: 0,
+        status: "Recommended",
+        releaseId: 64,
+        version: "SHU8",
+        packageUrl:
+          "https://honeywellprocess.blob.core.windows.net/public/Support/Customer/Experion-PKS-R520-Server-HMIWeb-Update-8.zip",
+      },
+    ],
   },
-  "migration": {
-    "version": "R530",
-    "child": [
+  migration: {
+    version: "R530",
+    child: [
       {
-        "hotFixes": null,
-        "order": 0,
-        "status": "Recommended",
-        "releaseId": 927,
-        "version": "TCU2",
-        "releaseTypeId": 2,
-        "releaseDate": "2024-01-24T00:00:00",
-        "comments": "TCU recommendation processing completed!! Latest version recommended to user!",
-        "packageUrl": "",
-        "scnUrl": "",
-        "supportEndDate": "2028-12-31T00:00:00",
-        "msid": null
-      }
-    ]
-  }
+        hotFixes: null,
+        order: 0,
+        status: "Recommended",
+        releaseId: 927,
+        version: "TCU2",
+      },
+    ],
+  },
 };
 
-// Get the transformed graph data
 const graphData = extractGraphData(inputJson);
 console.log(JSON.stringify(graphData, null, 2));
