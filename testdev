@@ -1,0 +1,125 @@
+{
+    "installed": {
+        "installedExpVersion": "R520.1",
+        "child": {
+            "installedChild": [
+                {
+                    "key": "installedTCUVersion",
+                    "releaseId": 24,
+                    "version": "TCU1",
+                    "releaseTypeId": 2,
+                    "releaseDate": "2022-09-07T00:00:00",
+                    "comments": null,
+                    "packageUrl": "",
+                    "scnUrl": "",
+                    "supportEndDate": "2027-09-07T00:00:00",
+                    "msid": null
+                },
+                {
+                    "key": "installedSHUVersion",
+                    "releaseId": 58,
+                    "version": "SHU4",
+                    "releaseTypeId": 3,
+                    "releaseDate": "2022-08-16T00:00:00",
+                    "comments": "R520 SHU4",
+                    "packageUrl": "https://honeywellprocess.blob.core.windows.net/public/Support/Experion/Experion-PKS-R520-Server-HMIWeb-Update-4.zip",
+                    "scnUrl": "https://process.honeywell.com/us/en/support/technical-publication?search=%2522experion%2520pks%2520r520%2520server%252Fhmiweb%2520update%25204%2520software%2520change%2520notice%2522",
+                    "supportEndDate": "2028-12-31T00:00:00",
+                    "msid": null
+                },
+                {
+                    "key": "installedQuickBuilderVersion",
+                    "releaseId": 0,
+                    "version": "QBU4",
+                    "releaseTypeId": 0,
+                    "releaseDate": null,
+                    "comments": null,
+                    "packageUrl": null,
+                    "scnUrl": null,
+                    "supportEndDate": null,
+                    "msid": null
+                },
+                {
+                    "key": "installedTpsDisplaysVersion",
+                    "releaseId": 67,
+                    "version": "TPSDU1",
+                    "releaseTypeId": 9,
+                    "releaseDate": "2022-08-29T00:00:00",
+                    "comments": null,
+                    "packageUrl": "https://honeywellprocess.blob.core.windows.net/public/Support/Customer/Experion_PKS_R520_2_TPS_Displays_Update_1_Download.zip",
+                    "scnUrl": "https://process.honeywell.com/us/en/support/technical-publication?search=%22experion+pks+r520.2+tps+displays+update+1+software+change+notice%22",
+                    "supportEndDate": "2028-12-31T00:00:00",
+                    "msid": null
+                }
+            ],
+            "upgradeChild": [],
+            "migrationChild": []
+        }
+    },
+    "upgrade": {
+        "version": "R520.2",
+        "child": [
+            {
+                "hotFixes": [
+                    {
+                        "order": 0,
+                        "status": "Recommended",
+                        "releaseId": 924,
+                        "version": "HF3",
+                        "releaseTypeId": 2,
+                        "releaseDate": "2024-10-11T00:00:00",
+                        "comments": null,
+                        "packageUrl": "",
+                        "scnUrl": "",
+                        "supportEndDate": "2027-09-07T00:00:00",
+                        "msid": null
+                    }
+                ],
+                "order": 0,
+                "status": "Supported",
+                "releaseId": 39,
+                "version": "TCU7",
+                "releaseTypeId": 2,
+                "releaseDate": "2024-07-03T00:00:00",
+                "comments": null,
+                "packageUrl": "",
+                "scnUrl": "",
+                "supportEndDate": "2027-09-07T00:00:00",
+                "msid": null
+            },
+            {
+                "hotFixes": null,
+                "order": 0,
+                "status": "Recommended",
+                "releaseId": 64,
+                "version": "SHU8",
+                "releaseTypeId": 3,
+                "releaseDate": "2024-04-08T00:00:00",
+                "comments": null,
+                "packageUrl": "https://honeywellprocess.blob.core.windows.net/public/Support/Customer/Experion-PKS-R520-Server-HMIWeb-Update-8.zip",
+                "scnUrl": "https://process.honeywell.com/us/en/support/technical-publication?search=%22experion+pks+r520+server%2Fhmiweb+update+8+software+change+notice%22",
+                "supportEndDate": "2028-12-31T00:00:00",
+                "msid": null
+            }
+        ]
+    },
+    "migration": {
+        "version": "R530",
+        "child": [
+            {
+                "hotFixes": null,
+                "order": 0,
+                "status": "Recommended",
+                "releaseId": 927,
+                "version": "TCU2",
+                "releaseTypeId": 2,
+                "releaseDate": "2024-01-24T00:00:00",
+                "comments": "TCU recommendation processing completed!! Latest version recommended to user!",
+                "packageUrl": "",
+                "scnUrl": "",
+                "supportEndDate": "2028-12-31T00:00:00",
+                "msid": null
+            }
+        ]
+    }
+}
