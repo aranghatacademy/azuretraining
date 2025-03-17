@@ -1,8 +1,9 @@
-// Type definitions for graph nodes and output structure
+// Define types for graph nodes and output structure
 interface GraphNode {
   id: string;
   title: string;
-  color: string;
+  // Optional color – can be extended if input later includes color info
+  color?: string;
   marker: {
     radius: number;
     lineWidth: number;
@@ -15,11 +16,22 @@ interface GraphData {
   nodes: GraphNode[];
 }
 
-// Define types for the input JSON structure (only required fields)
+// Define types for the input JSON structure (only required fields are included)
 interface InstalledChild {
   key: string;
   version: string;
-  // other fields can be defined as needed...
+  // additional fields omitted...
+}
+
+interface UpgradeChild {
+  version: string;
+  hotFixes?: { version: string }[];
+  // additional fields omitted...
+}
+
+interface MigrationChild {
+  version: string;
+  // additional fields omitted...
 }
 
 interface InputJSON {
@@ -27,262 +39,107 @@ interface InputJSON {
     installedExpVersion: string;
     child: {
       installedChild: InstalledChild[];
-      upgradeChild: any[];
-      migrationChild: any[];
+      upgradeChild?: any[];
+      migrationChild?: any[];
     };
   };
   upgrade: {
     version: string;
-    child: any[]; // Detailed typing can be added if needed
+    child: UpgradeChild[];
   };
   migration: {
     version: string;
-    child: any[];
+    child: MigrationChild[];
   };
 }
 
 /**
- * Extracts and transforms input JSON to a network graph data structure
- * for a Highcharts network graph.
+ * Dynamically extracts graph nodes and edges from the input JSON.
+ * All version values are plucked directly from the input; no static values are used.
  *
- * Transformation Rules:
- *   - Main nodes: installed => "R150", upgrade => "R160", migration => "R170"
- *   - Main chain edges: [R150, R160] and [R160, R170]
- *   - Installed children mapping:
- *         installedTCUVersion   => "TCU"
- *         installedSHUVersion   => "SHU"
- *         installedQuickBuilderVersion => "IU1"
- *         installedTpsDisplaysVersion  => "HPi"
- *     Plus a fixed extra edge/node "TC4"
- *   - Upgrade children:
- *         Child with version "TCU7" → edge from R170
- *         Child with version "SHU8" → edges from R160 to nodes "SHU4" and "IU4"
- *         Hotfix "HF3" is transformed to "HF2" → edge from R170
- *   - Migration children:
- *         Adds fixed nodes "HUB" and "IU9" with edges from R170
+ * Rules:
+ * - Main nodes:  
+ *     installed: input.installed.installedExpVersion  
+ *     upgrade: input.upgrade.version  
+ *     migration: input.migration.version  
+ *   (Chain edges are created between these main nodes.)
  *
- * @param input - Input JSON object
+ * - For each installed child node, use its version value as node id/title and add an edge
+ *   from the installed main node.
+ *
+ * - For each upgrade child node, use its version value as node id/title and add an edge
+ *   from the upgrade main node. If hotFixes are present, each hotfix is added as a node
+ *   (using its version) with an edge from the upgrade child node.
+ *
+ * - For each migration child node, use its version value as node id/title and add an edge
+ *   from the migration main node.
+ *
+ * @param input - The input JSON object.
  * @returns GraphData containing nodes and edges.
  */
 function extractGraphData(input: InputJSON): GraphData {
   const result: GraphData = { data: [], nodes: [] };
 
-  // Main nodes mapping
-  const mainNodes = {
-    installed: "R150",
-    upgrade: "R160",
-    migration: "R170",
-  };
+  // Default marker styles for main nodes and child nodes.
+  // These can later be made configurable.
+  const defaultMainMarker = { radius: 40, lineWidth: 2, lineColor: "black" };
+  const defaultChildMarker = { radius: 30, lineWidth: 2, lineColor: "blue" };
 
-  // Add main nodes with specified styles
-  result.nodes.push(
-    {
-      id: mainNodes.installed,
-      title: mainNodes.installed,
-      color: "#706e75",
-      marker: { radius: 40, lineWidth: 2, lineColor: "red" },
-    },
-    {
-      id: mainNodes.upgrade,
-      title: mainNodes.upgrade,
-      color: "#706e75",
-      marker: { radius: 40, lineWidth: 2, lineColor: "red" },
-    },
-    {
-      id: mainNodes.migration,
-      title: mainNodes.migration,
-      color: "#706e75",
-      marker: { radius: 40, lineWidth: 2, lineColor: "green" },
+  // Helper function to add a node only if it doesn't already exist.
+  function addNode(node: GraphNode) {
+    if (!result.nodes.find((n) => n.id === node.id)) {
+      result.nodes.push(node);
     }
-  );
+  }
 
-  // Chain edges between main nodes
-  result.data.push([mainNodes.installed, mainNodes.upgrade]);
-  result.data.push([mainNodes.upgrade, mainNodes.migration]);
+  // --- Process Main Nodes ---
+  // Pluck main node version values from the input.
+  const installedMain = input.installed.installedExpVersion;
+  const upgradeMain = input.upgrade.version;
+  const migrationMain = input.migration.version;
 
-  // Mapping for installed children keys to node ids
-  const installedMapping: { [key: string]: () => string } = {
-    installedTCUVersion: () => "TCU",
-    installedSHUVersion: () => "SHU",
-    installedQuickBuilderVersion: () => "IU1",
-    installedTpsDisplaysVersion: () => "HPi",
-  };
+  // Add main nodes using the plucked version values.
+  addNode({ id: installedMain, title: installedMain, marker: defaultMainMarker });
+  addNode({ id: upgradeMain, title: upgradeMain, marker: defaultMainMarker });
+  addNode({ id: migrationMain, title: migrationMain, marker: defaultMainMarker });
 
-  // Process installed child nodes
-  if (
-    input.installed &&
-    input.installed.child &&
-    Array.isArray(input.installed.child.installedChild)
-  ) {
-    input.installed.child.installedChild.forEach((item) => {
-      const key = item.key;
-      if (installedMapping[key]) {
-        const nodeId = installedMapping[key]();
-        // Add node if not already present
-        if (!result.nodes.find((n) => n.id === nodeId)) {
-          result.nodes.push({
-            id: nodeId,
-            title: nodeId,
-            color: "#706e75",
-            marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
-          });
-        }
-        // Create edge from installed main node to child node
-        result.data.push([mainNodes.installed, nodeId]);
-      }
-    });
-    // Add fixed extra node "TC4" and its edge
-    if (!result.nodes.find((n) => n.id === "TC4")) {
-      result.nodes.push({
-        id: "TC4",
-        title: "TC4",
-        color: "#706e75",
-        marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
+  // Create chain edges between main nodes.
+  result.data.push([installedMain, upgradeMain]);
+  result.data.push([upgradeMain, migrationMain]);
+
+  // --- Process Installed Child Nodes ---
+  input.installed.child.installedChild.forEach((child) => {
+    const childId = child.version;
+    addNode({ id: childId, title: child.version, marker: defaultChildMarker });
+    // Create an edge from the installed main node to this child node.
+    result.data.push([installedMain, childId]);
+  });
+
+  // --- Process Upgrade Child Nodes ---
+  input.upgrade.child.forEach((child) => {
+    const childId = child.version;
+    addNode({ id: childId, title: child.version, marker: defaultChildMarker });
+    // Edge from upgrade main node to the upgrade child node.
+    result.data.push([upgradeMain, childId]);
+
+    // Process hotfixes if they exist.
+    if (child.hotFixes && Array.isArray(child.hotFixes)) {
+      child.hotFixes.forEach((hotfix) => {
+        const hotfixId = hotfix.version;
+        addNode({ id: hotfixId, title: hotfix.version, marker: defaultChildMarker });
+        // Edge from the upgrade child node to the hotfix node.
+        result.data.push([childId, hotfixId]);
       });
     }
-    result.data.push([mainNodes.installed, "TC4"]);
-  }
+  });
 
-  // Process upgrade child nodes
-  if (input.upgrade && Array.isArray(input.upgrade.child)) {
-    input.upgrade.child.forEach((child: any) => {
-      // Process hotfixes if present
-      if (child.hotFixes && Array.isArray(child.hotFixes)) {
-        child.hotFixes.forEach((hotfix: any) => {
-          // Transform "HF3" to "HF2"
-          const hotfixNode = hotfix.version === "HF3" ? "HF2" : hotfix.version;
-          if (!result.nodes.find((n) => n.id === hotfixNode)) {
-            result.nodes.push({
-              id: hotfixNode,
-              title: hotfixNode,
-              color: "#706e75",
-              marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
-            });
-          }
-          // Edge from migration main node to hotfix node
-          result.data.push([mainNodes.migration, hotfixNode]);
-        });
-      }
-      // Process main upgrade child version
-      if (child.version) {
-        if (child.version === "TCU7") {
-          if (!result.nodes.find((n) => n.id === "TCU7")) {
-            result.nodes.push({
-              id: "TCU7",
-              title: "TCU7",
-              color: "#706e75",
-              marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
-            });
-          }
-          result.data.push([mainNodes.migration, "TCU7"]);
-        }
-        if (child.version === "SHU8") {
-          // Add nodes "SHU4" and "IU4" if not already added
-          ["SHU4", "IU4"].forEach((nodeId) => {
-            if (!result.nodes.find((n) => n.id === nodeId)) {
-              result.nodes.push({
-                id: nodeId,
-                title: nodeId,
-                color: "#706e75",
-                marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
-              });
-            }
-          });
-          result.data.push([mainNodes.upgrade, "SHU4"]);
-          result.data.push([mainNodes.upgrade, "IU4"]);
-        }
-      }
-    });
-  }
-
-  // Process migration child nodes: add fixed nodes "HUB" and "IU9"
-  if (input.migration && Array.isArray(input.migration.child)) {
-    input.migration.child.forEach(() => {
-      ["HUB", "IU9"].forEach((nodeId) => {
-        if (!result.nodes.find((n) => n.id === nodeId)) {
-          result.nodes.push({
-            id: nodeId,
-            title: nodeId,
-            color: "#706e75",
-            marker: { radius: 30, lineWidth: 2, lineColor: "blue" },
-          });
-        }
-        result.data.push([mainNodes.migration, nodeId]);
-      });
-    });
-  }
+  // --- Process Migration Child Nodes ---
+  input.migration.child.forEach((child) => {
+    const childId = child.version;
+    addNode({ id: childId, title: child.version, marker: defaultChildMarker });
+    // Edge from migration main node to the migration child node.
+    result.data.push([migrationMain, childId]);
+  });
 
   return result;
 }
-
-// ----- Example Usage ----- //
-const inputJson: InputJSON = {
-  installed: {
-    installedExpVersion: "R520.1",
-    child: {
-      installedChild: [
-        {
-          key: "installedTCUVersion",
-          version: "TCU1",
-        },
-        {
-          key: "installedSHUVersion",
-          version: "SHU4",
-        },
-        {
-          key: "installedQuickBuilderVersion",
-          version: "QBU4",
-        },
-        {
-          key: "installedTpsDisplaysVersion",
-          version: "TPSDU1",
-        },
-      ],
-      upgradeChild: [],
-      migrationChild: [],
-    },
-  },
-  upgrade: {
-    version: "R520.2",
-    child: [
-      {
-        hotFixes: [
-          {
-            order: 0,
-            status: "Recommended",
-            releaseId: 924,
-            version: "HF3",
-          },
-        ],
-        order: 0,
-        status: "Supported",
-        releaseId: 39,
-        version: "TCU7",
-      },
-      {
-        hotFixes: null,
-        order: 0,
-        status: "Recommended",
-        releaseId: 64,
-        version: "SHU8",
-        packageUrl:
-          "https://honeywellprocess.blob.core.windows.net/public/Support/Customer/Experion-PKS-R520-Server-HMIWeb-Update-8.zip",
-      },
-    ],
-  },
-  migration: {
-    version: "R530",
-    child: [
-      {
-        hotFixes: null,
-        order: 0,
-        status: "Recommended",
-        releaseId: 927,
-        version: "TCU2",
-      },
-    ],
-  },
-};
-
-const graphData = extractGraphData(inputJson);
-console.log(JSON.stringify(graphData, null, 2));
